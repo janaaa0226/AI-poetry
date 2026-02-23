@@ -9,7 +9,7 @@ from bidi.algorithm import get_display
 
 # --- 1. SETUP API KEY ---
 # Note: Later we can move this to "Secrets" for better security!
-GOOGLE_API_KEY = "AIzaSyDWnxDreHF4lo5vRIuhifTRknEzC1DOpNE"
+GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # --- 2. PAGE CONFIG ---
