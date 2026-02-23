@@ -51,10 +51,15 @@ div.stDeployButton {{display:none;}}
     padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
 
-/* INPUT BOXES AND SELECTBOX COLOR */
+/* DARKER INPUT BOXES AND LABELS */
+[data-testid="stWidgetLabel"] p {{
+    color: #2b1d0e !important; /* Darker Brown for Labels */
+    font-weight: 900 !important;
+}}
+
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
-    background-color: #c2a382 !important; 
-    color: #3e2723 !important; 
+    background-color: #a68b6a !important; /* Darker Tan Background */
+    color: #ffffff !important; /* White Text for Contrast */
     border-radius: 8px !important; 
     border: 2px solid #3e2723 !important; 
     font-weight: bold !important;
@@ -74,15 +79,12 @@ div.stButton > button {{
 </style>
 ''', unsafe_allow_html=True)
 
-# --- 4. GUEST VIEW LOGIC (The Template) ---
+# --- 4. GUEST VIEW LOGIC ---
 query_params = st.query_params
 if "poem" in query_params:
     encoded_poem = query_params["poem"]
     decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
-    
-    # Removed "Your Heritage Poem" title here
     st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-    
     if st.button("Create Your Own Poem / أنشئ قصيدتك"):
         st.query_params.clear()
         st.rerun()
@@ -93,7 +95,6 @@ st.markdown("<h1 class='main-title'>Foundation Day Poetry</h1>", unsafe_allow_ht
 st.markdown("<h1 class='main-title' style='font-family:Amiri; font-size:55px !important;'>قصيدة يوم التأسيس</h1>", unsafe_allow_html=True)
 
 with st.form(key="poem_form"):
-    # Updated Labels
     user_prompt = st.text_input("أدخل كلمات من التراث (مثل: الدرعية، فخر، عز):")
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
@@ -105,20 +106,20 @@ if submit_button and user_prompt:
             model_name = next((m for m in models if "gemini-1.5-flash" in m), models[0])
             model = genai.GenerativeModel(model_name)
             
-            prompt = f"Write a beautiful short poem about {user_prompt} for Saudi Foundation Day in {language}."
+            # STRICT INSTRUCTIONS to avoid translations
+            prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. Do NOT provide any translations or other languages."
+            
             response = model.generate_content(prompt)
 
             if response.text:
                 poem_text = response.text.strip()
                 st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
-                # --- 6. SMART QR CODE LOGIC ---
                 encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
                 base_url = "https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app"
                 shareable_url = f"{base_url}/?poem={encoded_for_url}"
                 
                 st.markdown('<div class="action-box">', unsafe_allow_html=True)
-                
                 qr = qrcode.make(shareable_url)
                 buf = BytesIO()
                 qr.save(buf)
