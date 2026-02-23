@@ -7,7 +7,6 @@ import base64
 # --- 1. SETUP ---
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-    # We remove the API version override to let the library pick the best one
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
     st.error("API Key missing! Add it to Streamlit Secrets.")
@@ -48,9 +47,7 @@ div.stDeployButton {{display:none;}}
     padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
 
-[data-testid="stWidgetLabel"] p {{
-    color: #2b1d0e !important; font-weight: 900 !important;
-}}
+[data-testid="stWidgetLabel"] p {{ color: #2b1d0e !important; font-weight: 900 !important; }}
 
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
     background-color: #a68b6a !important; color: #ffffff !important; 
@@ -94,13 +91,19 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. LOGIC (STABLE VERSION) ---
+# --- 6. THE SMART LOGIC (AUTO-SELECTS MODEL) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # We use the direct string "gemini-1.5-flash" (no 'models/' prefix)
-            # This is the most compatible way for the current library
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # 1. FIND MODELS: This searches your account for models that actually work.
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            # 2. PICK THE BEST: Look for 1.5-flash first (high limit), then 1.5-pro, then anything else.
+            best_model = next((m for m in available_models if "1.5-flash" in m), 
+                         next((m for m in available_models if "1.5-pro" in m), 
+                         available_models[0]))
+            
+            model = genai.GenerativeModel(best_model)
             
             prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
             response = model.generate_content(prompt)
@@ -120,10 +123,7 @@ if submit_button and user_prompt:
                 st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
-            # If 1.5 Flash fails, we try a generic fallback model
-            try:
-                model = genai.GenerativeModel("gemini-pro")
-                response = model.generate_content(prompt)
-                # ... same display logic as above ...
-            except:
+            if "429" in str(e):
+                st.error("Too many poems at once! Please wait 30 seconds and try again.")
+            else:
                 st.error(f"Error: {e}")
