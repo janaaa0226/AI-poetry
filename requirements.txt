@@ -1,0 +1,7 @@
+streamlit
+google-generativeai
+fpdf2
+arabic-reshaper
+python-bidi
+qrcode
+pillow
