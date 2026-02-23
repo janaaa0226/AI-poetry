@@ -1,11 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
-from fpdf import FPDF
 import qrcode
 from io import BytesIO
-import arabic_reshaper
-from bidi.algorithm import get_display
-import os
 import base64
 
 # --- 1. SETUP ---
@@ -13,7 +9,7 @@ try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
-    st.error("API Key missing! Add it to Streamlit Secrets.")
+    st.error("API Key missing! Check Streamlit Secrets.")
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
@@ -28,44 +24,33 @@ header {{visibility: hidden;}}
 #MainMenu {{visibility: hidden;}}
 footer {{visibility: hidden;}}
 div.stDeployButton {{display:none;}}
-
 .stApp {{ background-image: url("{background_image_url}"); background-size: cover; background-attachment: fixed; }}
-
 .main-title {{
     font-size: 65px !important; font-weight: 700 !important; text-align: center !important;
     color: #f5f0e1 !important; text-shadow: 3px 3px 15px rgba(0,0,0,0.7) !important; 
     margin: 10px 0px !important; line-height: 1.2 !important;
 }}
-
 .poem-template {{
     background-color: rgba(245, 240, 225, 0.96); 
-    padding: 60px; border-radius: 20px; border: 8px double #3e2723;
-    max-width: 800px; margin: 50px auto;
+    padding: 40px; border-radius: 20px; border: 8px double #3e2723;
+    max-width: 800px; margin: 30px auto;
     color: #3e2723 !important; font-family: 'Amiri', serif; 
-    font-weight: bold; font-size: 35px; text-align: center; line-height: 2.5;
-    box-shadow: 0px 15px 35px rgba(0,0,0,0.6);
+    font-weight: bold; font-size: 32px; text-align: center; line-height: 2.2;
 }}
-
 [data-testid="stForm"] {{
     max-width: 500px; margin: 0 auto; background-color: rgba(245, 240, 225, 0.95); 
     padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
-
-[data-testid="stWidgetLabel"] p {{
-    color: #2b1d0e !important; font-weight: 900 !important;
-}}
-
+[data-testid="stWidgetLabel"] p {{ color: #2b1d0e !important; font-weight: 900 !important; }}
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
     background-color: #a68b6a !important; color: #ffffff !important; 
     border-radius: 8px !important; border: 2px solid #3e2723 !important; font-weight: bold !important;
 }}
-
 div.stButton > button {{
     background-color: #3e2723 !important; color: #f5f0e1 !important; 
-    font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
-    border: 2px solid #3e2723 !important; border-radius: 8px !important;
+    width: 100%; font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
+    border-radius: 8px !important;
 }}
-
 .action-box {{
     text-align: center; background: rgba(245, 240, 225, 0.95);
     padding: 25px; border-radius: 15px; max-width: 450px; margin: 20px auto; border: 2px solid #3e2723;
@@ -76,17 +61,13 @@ div.stButton > button {{
 # --- 4. GUEST VIEW LOGIC ---
 query_params = st.query_params
 if "poem" in query_params:
-    try:
-        encoded_poem = query_params["poem"]
-        decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
-        st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-        if st.button("Create Your Own Poem / أنشئ قصيدتك"):
-            st.query_params.clear()
-            st.rerun()
-        st.stop()
-    except:
+    encoded_poem = query_params["poem"]
+    decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
+    st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+    if st.button("Create Your Own Poem / أنشئ قصيدتك"):
         st.query_params.clear()
         st.rerun()
+    st.stop()
 
 # --- 5. MAIN APP UI ---
 st.markdown("<h1 class='main-title'>Foundation Day Poetry</h1>", unsafe_allow_html=True)
@@ -97,19 +78,14 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. AUTO-MODEL PICKER (SOLVES 404) ---
+# --- 6. LOGIC (QUOTA SAFE) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # Dynamically find an available model
-            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            # Prioritize 1.5 flash, otherwise pick the first available one
-            best_model = next((m for m in all_models if "1.5-flash" in m), all_models[0])
+            # SWITCHING TO THE HIGH-LIMIT MODEL
+            model = genai.GenerativeModel("gemini-1.5-flash")
             
-            model = genai.GenerativeModel(best_model)
-            
-            prompt = f"Write a beautiful short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. Do NOT provide any translations or notes."
-            
+            prompt = f"Write a beautiful short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
             response = model.generate_content(prompt)
 
             if response.text:
@@ -117,8 +93,7 @@ if submit_button and user_prompt:
                 st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
                 encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
-                base_url = "https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app"
-                shareable_url = f"{base_url}/?poem={encoded_for_url}"
+                shareable_url = f"https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app/?poem={encoded_for_url}"
                 
                 st.markdown('<div class="action-box">', unsafe_allow_html=True)
                 qr = qrcode.make(shareable_url)
@@ -128,4 +103,7 @@ if submit_button and user_prompt:
                 st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            if "429" in str(e):
+                st.error("The line is moving fast! Please wait 30 seconds and click Generate again.")
+            else:
+                st.error(f"Error: {e}")
