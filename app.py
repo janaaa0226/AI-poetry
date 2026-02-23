@@ -51,7 +51,6 @@ div.stDeployButton {{display:none;}}
     padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
 
-/* DARKER INPUT BOXES AND LABELS FOR READABILITY */
 [data-testid="stWidgetLabel"] p {{
     color: #2b1d0e !important; 
     font-weight: 900 !important;
@@ -65,7 +64,6 @@ div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
     font-weight: bold !important;
 }}
 
-/* DEEP BROWN BUTTONS */
 div.stButton > button {{
     background-color: #3e2723 !important; color: #f5f0e1 !important; 
     font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
@@ -79,7 +77,7 @@ div.stButton > button {{
 </style>
 ''', unsafe_allow_html=True)
 
-# --- 4. GUEST VIEW LOGIC (QR Code Scanner Landing Page) ---
+# --- 4. GUEST VIEW LOGIC ---
 query_params = st.query_params
 if "poem" in query_params:
     try:
@@ -103,12 +101,12 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. LOGIC WITH QUOTA PROTECTION ---
+# --- 6. LOGIC WITH FIXED MODEL PATH ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # Force 1.5-Flash to avoid the 20-request limit of experimental models
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # Using the absolute model name to fix the 404 error
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
             
             prompt = f"Write a beautiful short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. Do NOT provide any translations or notes."
             
@@ -118,12 +116,10 @@ if submit_button and user_prompt:
                 poem_text = response.text.strip()
                 st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
-                # Generate Unique Shareable URL
                 encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
                 base_url = "https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app"
                 shareable_url = f"{base_url}/?poem={encoded_for_url}"
                 
-                # QR Code Section
                 st.markdown('<div class="action-box">', unsafe_allow_html=True)
                 qr = qrcode.make(shareable_url)
                 buf = BytesIO()
@@ -133,6 +129,6 @@ if submit_button and user_prompt:
 
         except Exception as e:
             if "429" in str(e):
-                st.error("The AI is busy (Quota Limit). Please wait 60 seconds and try again.")
+                st.error("The AI is busy. Please wait 60 seconds and try again.")
             else:
                 st.error(f"Error: {e}")
