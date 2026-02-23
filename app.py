@@ -7,8 +7,8 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 
 # --- 1. SETUP ---
-# Pulling the key from Secrets for safety
 try:
+    # Pulls from Streamlit Cloud Secrets
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
@@ -17,7 +17,7 @@ except:
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
 
-# --- 3. STYLING (Restored your original design) ---
+# --- 3. STYLING (Your Original Heritage Design) ---
 background_image_url = "https://i.pinimg.com/1200x/a3/8a/ca/a38acae15a962ecc7ab69d30dd42d5f3.jpg"
 
 st.markdown(f'''
@@ -84,9 +84,10 @@ def create_pdf(text, lang):
     pdf.add_page()
     pdf.set_draw_color(62, 39, 35)
     pdf.set_line_width(2)
-    pdf.rect(10, 10, 190, 277) # The Border Template
+    pdf.rect(10, 10, 190, 277) # The Heritage Border
     
     try:
+        # Requires Amiri-Regular.ttf to be in your GitHub repo
         pdf.add_font('Amiri', '', 'Amiri-Regular.ttf', uni=True)
         pdf.set_font('Amiri', size=25)
     except:
@@ -109,12 +110,12 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. LOGIC ---
+# --- 6. GENERATION LOGIC ---
 if submit_button and user_prompt:
     with st.spinner("Generating..."):
         try:
-            # Fixing the model support error by checking for available flash models
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # FIXED: Added '-latest' to the model name to solve the 404 error
+            model = genai.GenerativeModel("gemini-1.5-flash-latest")
             
             if language == "Arabic":
                 full_prompt = f"نظم قصيدة فصيحة مذهلة ومؤثرة تلامس الروح عن {user_prompt} بمناسبة يوم التأسيس."
@@ -128,14 +129,15 @@ if submit_button and user_prompt:
                 direction = "rtl" if language == "Arabic" else "ltr"
                 st.markdown(f'<div class="poem-container" style="direction: {direction};">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
-                # Generate Souvenir PDF
+                # Generate the Souvenir PDF
                 pdf_bytes = create_pdf(poem_text, language)
                 
-                # Show QR and Download
+                # Show Download and QR Code
                 st.markdown('<div class="action-box">', unsafe_allow_html=True)
                 st.download_button("📩 Download PDF Souvenir", data=pdf_bytes, file_name="Foundation_Day_Poem.pdf")
                 
-                qr = qrcode.make("https://your-actual-link.streamlit.app") # UPDATE THIS LINK
+                # UPDATE THIS LINK to your actual app URL
+                qr = qrcode.make("https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app") 
                 buf = BytesIO()
                 qr.save(buf)
                 st.image(buf, caption="Scan to share!", width=150)
