@@ -52,16 +52,12 @@ div.stDeployButton {{display:none;}}
 }}
 
 [data-testid="stWidgetLabel"] p {{
-    color: #2b1d0e !important; 
-    font-weight: 900 !important;
+    color: #2b1d0e !important; font-weight: 900 !important;
 }}
 
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
-    background-color: #a68b6a !important; 
-    color: #ffffff !important; 
-    border-radius: 8px !important; 
-    border: 2px solid #3e2723 !important; 
-    font-weight: bold !important;
+    background-color: #a68b6a !important; color: #ffffff !important; 
+    border-radius: 8px !important; border: 2px solid #3e2723 !important; font-weight: bold !important;
 }}
 
 div.stButton > button {{
@@ -101,12 +97,16 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. LOGIC WITH FIXED MODEL PATH ---
+# --- 6. AUTO-MODEL PICKER (SOLVES 404) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # Using the absolute model name to fix the 404 error
-            model = genai.GenerativeModel("models/gemini-1.5-flash")
+            # Dynamically find an available model
+            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            # Prioritize 1.5 flash, otherwise pick the first available one
+            best_model = next((m for m in all_models if "1.5-flash" in m), all_models[0])
+            
+            model = genai.GenerativeModel(best_model)
             
             prompt = f"Write a beautiful short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. Do NOT provide any translations or notes."
             
@@ -128,7 +128,4 @@ if submit_button and user_prompt:
                 st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
-            if "429" in str(e):
-                st.error("The AI is busy. Please wait 60 seconds and try again.")
-            else:
-                st.error(f"Error: {e}")
+            st.error(f"Error: {e}")
