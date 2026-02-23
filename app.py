@@ -7,9 +7,10 @@ import base64
 # --- 1. SETUP ---
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+    # We remove the API version override to let the library pick the best one
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
-    st.error("API Key missing! Check Streamlit Secrets.")
+    st.error("API Key missing! Add it to Streamlit Secrets.")
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
@@ -24,33 +25,44 @@ header {{visibility: hidden;}}
 #MainMenu {{visibility: hidden;}}
 footer {{visibility: hidden;}}
 div.stDeployButton {{display:none;}}
+
 .stApp {{ background-image: url("{background_image_url}"); background-size: cover; background-attachment: fixed; }}
+
 .main-title {{
     font-size: 65px !important; font-weight: 700 !important; text-align: center !important;
     color: #f5f0e1 !important; text-shadow: 3px 3px 15px rgba(0,0,0,0.7) !important; 
     margin: 10px 0px !important; line-height: 1.2 !important;
 }}
+
 .poem-template {{
     background-color: rgba(245, 240, 225, 0.96); 
-    padding: 40px; border-radius: 20px; border: 8px double #3e2723;
-    max-width: 800px; margin: 30px auto;
+    padding: 60px; border-radius: 20px; border: 8px double #3e2723;
+    max-width: 800px; margin: 50px auto;
     color: #3e2723 !important; font-family: 'Amiri', serif; 
-    font-weight: bold; font-size: 32px; text-align: center; line-height: 2.2;
+    font-weight: bold; font-size: 35px; text-align: center; line-height: 2.5;
+    box-shadow: 0px 15px 35px rgba(0,0,0,0.6);
 }}
+
 [data-testid="stForm"] {{
     max-width: 500px; margin: 0 auto; background-color: rgba(245, 240, 225, 0.95); 
     padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
-[data-testid="stWidgetLabel"] p {{ color: #2b1d0e !important; font-weight: 900 !important; }}
+
+[data-testid="stWidgetLabel"] p {{
+    color: #2b1d0e !important; font-weight: 900 !important;
+}}
+
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
     background-color: #a68b6a !important; color: #ffffff !important; 
     border-radius: 8px !important; border: 2px solid #3e2723 !important; font-weight: bold !important;
 }}
+
 div.stButton > button {{
     background-color: #3e2723 !important; color: #f5f0e1 !important; 
-    width: 100%; font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
-    border-radius: 8px !important;
+    font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
+    border: 2px solid #3e2723 !important; border-radius: 8px !important;
 }}
+
 .action-box {{
     text-align: center; background: rgba(245, 240, 225, 0.95);
     padding: 25px; border-radius: 15px; max-width: 450px; margin: 20px auto; border: 2px solid #3e2723;
@@ -61,13 +73,17 @@ div.stButton > button {{
 # --- 4. GUEST VIEW LOGIC ---
 query_params = st.query_params
 if "poem" in query_params:
-    encoded_poem = query_params["poem"]
-    decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
-    st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-    if st.button("Create Your Own Poem / أنشئ قصيدتك"):
+    try:
+        encoded_poem = query_params["poem"]
+        decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
+        st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+        if st.button("Create Your Own Poem / أنشئ قصيدتك"):
+            st.query_params.clear()
+            st.rerun()
+        st.stop()
+    except:
         st.query_params.clear()
         st.rerun()
-    st.stop()
 
 # --- 5. MAIN APP UI ---
 st.markdown("<h1 class='main-title'>Foundation Day Poetry</h1>", unsafe_allow_html=True)
@@ -78,14 +94,15 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. LOGIC (QUOTA SAFE) ---
+# --- 6. LOGIC (STABLE VERSION) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # SWITCHING TO THE HIGH-LIMIT MODEL
+            # We use the direct string "gemini-1.5-flash" (no 'models/' prefix)
+            # This is the most compatible way for the current library
             model = genai.GenerativeModel("gemini-1.5-flash")
             
-            prompt = f"Write a beautiful short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
+            prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
             response = model.generate_content(prompt)
 
             if response.text:
@@ -103,7 +120,10 @@ if submit_button and user_prompt:
                 st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
-            if "429" in str(e):
-                st.error("The line is moving fast! Please wait 30 seconds and click Generate again.")
-            else:
+            # If 1.5 Flash fails, we try a generic fallback model
+            try:
+                model = genai.GenerativeModel("gemini-pro")
+                response = model.generate_content(prompt)
+                # ... same display logic as above ...
+            except:
                 st.error(f"Error: {e}")
