@@ -9,12 +9,12 @@ try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
-    st.error("API Key missing! Add it to Streamlit Secrets.")
+    st.error("API Key missing!")
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
 
-# --- 3. THE HERITAGE UI ---
+# --- 3. THE ORIGINAL HERITAGE UI ---
 background_image_url = "https://i.pinimg.com/1200x/a3/8a/ca/a38acae15a962ecc7ab69d30dd42d5f3.jpg"
 
 st.markdown(f'''
@@ -47,7 +47,7 @@ div.stDeployButton {{display:none;}}
 }}
 
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
-    background-color: #a68b6a !important; color: #ffffff !important; 
+    background-color: #c2a382 !important; color: #3e2723 !important; 
     border-radius: 8px !important; border: 2px solid #3e2723 !important; font-weight: bold !important;
 }}
 
@@ -84,17 +84,12 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. AUTO-DETECTION LOGIC (FIXES 404) ---
+# --- 6. EMERGENCY LOGIC (FORCE 1.5 FLASH) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # Step A: Get all models your key can use
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            
-            # Step B: Pick the best flash model or fallback to pro
-            model_to_use = next((m for m in available_models if "flash" in m), available_models[0])
-            
-            model = genai.GenerativeModel(model_to_use)
+            # We use 1.5-flash which has a 1,500/day limit instead of 2.5-flash (20/day)
+            model = genai.GenerativeModel("gemini-1.5-flash")
             prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
             
             response = model.generate_content(prompt)
