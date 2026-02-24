@@ -4,17 +4,18 @@ import qrcode
 from io import BytesIO
 import base64
 
-# SETUP 
+# --- 1. SETUP ---
 try:
+    # Uses whatever key you have in secrets
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
-    st.error("API Key missing! Add it to Streamlit Secrets.")
+    st.error("API Key missing!")
 
-#  PAGE CONFIG 
+# --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
 
-#  UI 
+# --- 3. THE HERITAGE UI ---
 background_image_url = "https://i.pinimg.com/1200x/a3/8a/ca/a38acae15a962ecc7ab69d30dd42d5f3.jpg"
 
 st.markdown(f'''
@@ -36,9 +37,9 @@ div.stDeployButton {{display:none;}}
 .poem-template {{
     background-color: rgba(245, 240, 225, 0.96); 
     padding: 60px; border-radius: 20px; border: 8px double #3e2723;
-    max-width: 800px; margin: 50px auto;
+    max-width: 800px; margin: 30px auto;
     color: #3e2723 !important; font-family: 'Amiri', serif; 
-    font-weight: bold; font-size: 35px; text-align: center; line-height: 2.5;
+    font-weight: bold; font-size: 35px; text-align: center; line-height: 2.2;
     box-shadow: 0px 15px 35px rgba(0,0,0,0.6);
 }}
 
@@ -67,22 +68,18 @@ div.stButton > button {{
 </style>
 ''', unsafe_allow_html=True)
 
-# GUEST VIEW LOGIC 
+# --- 4. GUEST VIEW LOGIC ---
 query_params = st.query_params
 if "poem" in query_params:
-    try:
-        encoded_poem = query_params["poem"]
-        decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
-        st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-        if st.button("Create Your Own Poem / أنشئ قصيدتك"):
-            st.query_params.clear()
-            st.rerun()
-        st.stop()
-    except:
+    encoded_poem = query_params["poem"]
+    decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
+    st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+    if st.button("Create Your Own Poem / أنشئ قصيدتك"):
         st.query_params.clear()
         st.rerun()
+    st.stop()
 
-#  MAIN APP UI 
+# --- 5. MAIN APP UI ---
 st.markdown("<h1 class='main-title'>Foundation Day Poetry</h1>", unsafe_allow_html=True)
 st.markdown("<h1 class='main-title' style='font-family:Amiri; font-size:55px !important;'>قصيدة يوم التأسيس</h1>", unsafe_allow_html=True)
 
@@ -91,27 +88,20 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# THE SMART LOGIC (AUTO-SELECTS MODEL) 
+# --- 6. LOGIC (NO LIMITS, RAW EXECUTION) ---
 if submit_button and user_prompt:
-    with st.spinner("Generating..."):
+    with st.spinner("Writing..."):
         try:
-            # 1. FIND MODELS 
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            
-            # 2. PICK THE BEST: Look for 1.5-flash first (high limit), then 1.5-pro  then anything else.
-            best_model = next((m for m in available_models if "1.5-flash" in m), 
-                         next((m for m in available_models if "1.5-pro" in m), 
-                         available_models[0]))
-            
-            model = genai.GenerativeModel(best_model)
-            
+            model = genai.GenerativeModel("gemini-1.5-flash")
             prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
+            
             response = model.generate_content(prompt)
 
             if response.text:
                 poem_text = response.text.strip()
                 st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
+                # QR Code Generation
                 encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
                 shareable_url = f"https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app/?poem={encoded_for_url}"
                 
@@ -119,11 +109,9 @@ if submit_button and user_prompt:
                 qr = qrcode.make(shareable_url)
                 buf = BytesIO()
                 qr.save(buf)
-                st.image(buf, caption="Scan to see this poem on your phone!", width=250)
+                st.image(buf, width=250)
                 st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
-            if "429" in str(e):
-                st.error("Too many poems at once! Please wait 30 seconds and try again.")
-            else:
-                st.error(f"Error: {e}")
+            # Just show the raw error so you know exactly what happened
+            st.error(f"Error: {e}")
