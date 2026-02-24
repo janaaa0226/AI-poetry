@@ -93,7 +93,7 @@ with st.form(key="poem_form"):
 
 # THE SMART LOGIC (AUTO-SELECTS MODEL) 
 if submit_button and user_prompt:
-    with st.spinner("Writing..."):
+    with st.spinner("Generating..."):
         try:
             # 1. FIND MODELS 
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
