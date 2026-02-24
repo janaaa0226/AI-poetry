@@ -4,17 +4,17 @@ import qrcode
 from io import BytesIO
 import base64
 
-# --- 1. SETUP ---
+# SETUP 
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
     st.error("API Key missing! Add it to Streamlit Secrets.")
 
-# --- 2. PAGE CONFIG ---
+#  PAGE CONFIG 
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
 
-# --- 3. THE "HERITAGE" UI ---
+#  UI 
 background_image_url = "https://i.pinimg.com/1200x/a3/8a/ca/a38acae15a962ecc7ab69d30dd42d5f3.jpg"
 
 st.markdown(f'''
@@ -67,7 +67,7 @@ div.stButton > button {{
 </style>
 ''', unsafe_allow_html=True)
 
-# --- 4. GUEST VIEW LOGIC ---
+# GUEST VIEW LOGIC 
 query_params = st.query_params
 if "poem" in query_params:
     try:
@@ -82,7 +82,7 @@ if "poem" in query_params:
         st.query_params.clear()
         st.rerun()
 
-# --- 5. MAIN APP UI ---
+#  MAIN APP UI 
 st.markdown("<h1 class='main-title'>Foundation Day Poetry</h1>", unsafe_allow_html=True)
 st.markdown("<h1 class='main-title' style='font-family:Amiri; font-size:55px !important;'>قصيدة يوم التأسيس</h1>", unsafe_allow_html=True)
 
@@ -91,14 +91,14 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. THE SMART LOGIC (AUTO-SELECTS MODEL) ---
+# THE SMART LOGIC (AUTO-SELECTS MODEL) 
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            # 1. FIND MODELS: This searches your account for models that actually work.
+            # 1. FIND MODELS 
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             
-            # 2. PICK THE BEST: Look for 1.5-flash first (high limit), then 1.5-pro, then anything else.
+            # 2. PICK THE BEST: Look for 1.5-flash first (high limit), then 1.5-pro  then anything else.
             best_model = next((m for m in available_models if "1.5-flash" in m), 
                          next((m for m in available_models if "1.5-pro" in m), 
                          available_models[0]))
