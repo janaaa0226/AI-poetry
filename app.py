@@ -6,11 +6,10 @@ import base64
 
 # --- 1. SETUP ---
 try:
-    # Uses whatever key you have in secrets
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
-    st.error("API Key missing!")
+    st.error("API Key missing! Add it to Streamlit Secrets.")
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
@@ -40,15 +39,12 @@ div.stDeployButton {{display:none;}}
     max-width: 800px; margin: 30px auto;
     color: #3e2723 !important; font-family: 'Amiri', serif; 
     font-weight: bold; font-size: 35px; text-align: center; line-height: 2.2;
-    box-shadow: 0px 15px 35px rgba(0,0,0,0.6);
 }}
 
 [data-testid="stForm"] {{
     max-width: 500px; margin: 0 auto; background-color: rgba(245, 240, 225, 0.95); 
     padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
-
-[data-testid="stWidgetLabel"] p {{ color: #2b1d0e !important; font-weight: 900 !important; }}
 
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
     background-color: #a68b6a !important; color: #ffffff !important; 
@@ -58,7 +54,7 @@ div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
 div.stButton > button {{
     background-color: #3e2723 !important; color: #f5f0e1 !important; 
     font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
-    border: 2px solid #3e2723 !important; border-radius: 8px !important;
+    border-radius: 8px !important;
 }}
 
 .action-box {{
@@ -88,11 +84,17 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. LOGIC (NO LIMITS, RAW EXECUTION) ---
+# --- 6. AUTO-DETECTION LOGIC (FIXES 404) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # Step A: Get all models your key can use
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            # Step B: Pick the best flash model or fallback to pro
+            model_to_use = next((m for m in available_models if "flash" in m), available_models[0])
+            
+            model = genai.GenerativeModel(model_to_use)
             prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
             
             response = model.generate_content(prompt)
@@ -101,7 +103,6 @@ if submit_button and user_prompt:
                 poem_text = response.text.strip()
                 st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
-                # QR Code Generation
                 encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
                 shareable_url = f"https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app/?poem={encoded_for_url}"
                 
@@ -113,5 +114,4 @@ if submit_button and user_prompt:
                 st.markdown('</div>', unsafe_allow_html=True)
 
         except Exception as e:
-            # Just show the raw error so you know exactly what happened
             st.error(f"Error: {e}")
