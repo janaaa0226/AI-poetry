@@ -9,7 +9,7 @@ try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
 except:
-    st.error("API Key missing!")
+    st.error("API Key missing! Add it to Secrets.")
 
 # --- 2. PAGE CONFIG ---
 st.set_page_config(page_title="Foundation Day Poetry", layout="wide")
@@ -43,7 +43,7 @@ div.stDeployButton {{display:none;}}
 
 [data-testid="stForm"] {{
     max-width: 500px; margin: 0 auto; background-color: rgba(245, 240, 225, 0.95); 
-    padding: 30px; border-radius: 15px; border: 2px solid #3e2723; 
+    padding: 30 -px; border-radius: 15px; border: 2px solid #3e2723; 
 }}
 
 div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
@@ -54,7 +54,7 @@ div.stTextInput > div > div > input, div.stSelectbox > div > div > div {{
 div.stButton > button {{
     background-color: #3e2723 !important; color: #f5f0e1 !important; 
     font-weight: bold !important; font-size: 22px !important; height: 55px !important; 
-    border-radius: 8px !important;
+    border-radius: 8px !important; width: 100%;
 }}
 
 .action-box {{
@@ -67,13 +67,17 @@ div.stButton > button {{
 # --- 4. GUEST VIEW LOGIC ---
 query_params = st.query_params
 if "poem" in query_params:
-    encoded_poem = query_params["poem"]
-    decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
-    st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-    if st.button("Create Your Own Poem / أنشئ قصيدتك"):
+    try:
+        encoded_poem = query_params["poem"]
+        decoded_poem = base64.b64decode(encoded_poem).decode('utf-8')
+        st.markdown(f'<div class="poem-template" style="margin-top:100px;">{decoded_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+        if st.button("Create Your Own Poem / أنشئ قصيدتك"):
+            st.query_params.clear()
+            st.rerun()
+        st.stop()
+    except:
         st.query_params.clear()
         st.rerun()
-    st.stop()
 
 # --- 5. MAIN APP UI ---
 st.markdown("<h1 class='main-title'>Foundation Day Poetry</h1>", unsafe_allow_html=True)
@@ -84,29 +88,37 @@ with st.form(key="poem_form"):
     language = st.selectbox("Choose language / اختر اللغة:", ["Arabic", "English"])
     submit_button = st.form_submit_button("Generate")
 
-# --- 6. EMERGENCY LOGIC (FORCE 1.5 FLASH) ---
+# --- 6. SMART MODEL PICKER (SOLVES 404) ---
 if submit_button and user_prompt:
     with st.spinner("Writing..."):
-        try:
-            # We use 1.5-flash which has a 1,500/day limit instead of 2.5-flash (20/day)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
-            
-            response = model.generate_content(prompt)
-
-            if response.text:
-                poem_text = response.text.strip()
-                st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-
-                encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
-                shareable_url = f"https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app/?poem={encoded_for_url}"
+        # We try three different ways to call the model to ensure NO 404s
+        model_names = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-pro"]
+        success = False
+        
+        for name in model_names:
+            try:
+                model = genai.GenerativeModel(name)
+                prompt = f"Write a short poem about {user_prompt} for Saudi Foundation Day. Use ONLY the {language} language. No translations."
+                response = model.generate_content(prompt)
                 
-                st.markdown('<div class="action-box">', unsafe_allow_html=True)
-                qr = qrcode.make(shareable_url)
-                buf = BytesIO()
-                qr.save(buf)
-                st.image(buf, width=250)
-                st.markdown('</div>', unsafe_allow_html=True)
+                if response.text:
+                    poem_text = response.text.strip()
+                    st.markdown(f'<div class="poem-template">{poem_text.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
 
-        except Exception as e:
-            st.error(f"Error: {e}")
+                    # QR Code
+                    encoded_for_url = base64.b64encode(poem_text.encode('utf-8')).decode('utf-8')
+                    shareable_url = f"https://ai-poetry-lz3kfqnaegzlfbvnaluovg.streamlit.app/?poem={encoded_for_url}"
+                    
+                    st.markdown('<div class="action-box">', unsafe_allow_html=True)
+                    qr = qrcode.make(shareable_url)
+                    buf = BytesIO()
+                    qr.save(buf)
+                    st.image(buf, width=250)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    success = True
+                    break # Stop if it works!
+            except:
+                continue # Try the next name if this one 404s
+        
+        if not success:
+            st.error("The AI is taking a break. Please check your API key or wait a minute.")
